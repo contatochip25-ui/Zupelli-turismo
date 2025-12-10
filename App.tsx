@@ -28,13 +28,13 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen text-slate-800 relative flex flex-col">
+    <div className="min-h-screen text-slate-800 relative flex flex-col font-sans">
       <Background />
       
       {/* Header */}
-      <header className="fixed top-0 left-0 w-full z-50 px-6 py-4 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <header className="fixed top-0 left-0 w-full z-[60] px-6 py-4 bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-300">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.location.reload()}>
             <div className="p-2 bg-blue-900 rounded-lg shadow-lg">
               <Plane className="w-6 h-6 text-white transform -rotate-45" />
             </div>
@@ -57,24 +57,26 @@ const App: React.FC = () => {
       {/* Main Content */}
       <main className="flex-grow flex flex-col items-center justify-start pt-32 pb-12 px-6 relative z-10 w-full max-w-7xl mx-auto">
         
-        <div className="w-full max-w-4xl mb-12 text-center animate-float">
-          <h2 className="text-4xl md:text-6xl font-display font-bold mb-6 text-slate-900 leading-tight">
+        <div className={`w-full max-w-4xl text-center transition-all duration-700 ${status === SearchStatus.IDLE ? 'mt-10 mb-12' : 'mt-0 mb-6'}`}>
+          <h2 className="text-4xl md:text-6xl font-display font-bold mb-6 text-slate-900 leading-tight animate-float">
             Descubra o mundo com <br/>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-900 to-blue-600">elegância e economia</span>
           </h2>
-          <p className="text-lg md:text-xl text-slate-600 font-light max-w-2xl mx-auto">
-            Utilizamos inteligência artificial avançada para curar as melhores experiências de voo com os preços mais exclusivos do mercado.
-          </p>
+          {status === SearchStatus.IDLE && (
+            <p className="text-lg md:text-xl text-slate-600 font-light max-w-2xl mx-auto animate-[fadeIn_1s_ease-out]">
+                Utilizamos inteligência artificial avançada para curar as melhores experiências de voo com os preços mais exclusivos do mercado.
+            </p>
+          )}
         </div>
 
         {/* Search Interface */}
-        <div className={`w-full max-w-4xl transition-all duration-700 ${status === SearchStatus.COMPLETE ? 'translate-y-0' : 'translate-y-0'}`}>
+        <div className="w-full max-w-4xl">
           <SearchForm onSearch={handleSearch} isLoading={status === SearchStatus.SEARCHING} />
         </div>
 
         {/* Loading State */}
         {status === SearchStatus.SEARCHING && (
-          <div className="mt-16 flex flex-col items-center gap-4">
+          <div className="mt-16 flex flex-col items-center gap-4 animate-[fadeIn_0.5s_ease-out]">
             <div className="relative w-20 h-20">
                <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
                <div className="absolute inset-0 border-4 border-blue-900 rounded-full border-t-transparent animate-spin"></div>
@@ -90,7 +92,7 @@ const App: React.FC = () => {
 
         {/* Error State */}
         {status === SearchStatus.ERROR && (
-          <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700 max-w-xl">
+          <div className="mt-8 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700 max-w-xl animate-[fadeIn_0.3s_ease-out]">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />
             <span className="text-sm">{errorMsg}</span>
           </div>
@@ -98,7 +100,7 @@ const App: React.FC = () => {
 
         {/* Results Display */}
         {status === SearchStatus.COMPLETE && results && (
-          <div className="w-full mt-12 mb-20">
+          <div className="w-full mt-8 mb-20">
              <ResultCard data={results} />
           </div>
         )}
@@ -106,7 +108,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="w-full bg-white border-t border-slate-200 py-8 mt-auto">
+      <footer className="w-full bg-white border-t border-slate-200 py-8 mt-auto relative z-20">
          <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
              <div className="text-slate-500 text-sm">
                  &copy; {new Date().getFullYear()} Zupelli Turismo. Todos os direitos reservados.

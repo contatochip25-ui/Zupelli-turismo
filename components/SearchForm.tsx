@@ -27,8 +27,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
   const originRef = useRef<HTMLDivElement>(null);
   const destRef = useRef<HTMLDivElement>(null);
 
-  // Date validation
-  const today = new Date().toISOString().split('T')[0];
+  // Date validation (Fix: Use local time to avoid previous day bug)
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format based on local time
 
   // Filter logic
   const filterAirports = (query: string) => {
@@ -106,7 +106,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
   }, []);
 
   return (
-    <div className="w-full relative">
+    <div className="w-full relative z-30">
       <div className="relative bg-white rounded-2xl p-8 shadow-[0_20px_50px_rgba(0,0,0,0.05)] border border-blue-50">
         
         <div className="text-center mb-8">
@@ -264,7 +264,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3"
+            className="w-full relative overflow-hidden bg-blue-900 hover:bg-blue-800 text-white font-bold py-4 px-6 rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center gap-3 group"
           >
             {isLoading ? (
                 <>
@@ -277,6 +277,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({ onSearch, isLoading }) =
                 <span className="tracking-wide text-sm">PESQUISAR VOOS</span>
               </>
             )}
+            {!isLoading && <div className="absolute top-0 left-[-100%] w-[50%] h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 group-hover:animate-[shimmer_1s_infinite]" />}
           </button>
         </form>
       </div>
