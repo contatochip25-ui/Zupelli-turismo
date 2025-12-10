@@ -1,10 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { FlightResponse, SearchParams } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const searchFlights = async (params: SearchParams): Promise<FlightResponse> => {
   try {
+    // Initialize AI client here to ensure process.env is available and prevent top-level crashes
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
     const tripTypeString = params.returnDate 
       ? `Viagem de IDA E VOLTA. Data de Volta: ${params.returnDate}` 
       : 'Viagem APENAS DE IDA';

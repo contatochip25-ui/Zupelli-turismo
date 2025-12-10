@@ -2,7 +2,7 @@ import React from 'react';
 
 export const Background: React.FC = () => {
   return (
-    <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#f8fafc]">
+    <div className="fixed inset-0 z-0 overflow-hidden bg-[#f8fafc]">
       {/* Soft Sky Gradient */}
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-orange-50" />
 
