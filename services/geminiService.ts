@@ -10,50 +10,52 @@ export const searchFlights = async (params: SearchParams): Promise<FlightRespons
     
     // Validar se a chave existe antes de tentar instanciar o cliente
     if (!apiKey) {
-      throw new Error("API_KEY não configurada. Verifique as variáveis de ambiente na Vercel.");
+      throw new Error("A chave da API (API_KEY) não está configurada. Configure as variáveis de ambiente no painel da Vercel.");
     }
 
     const ai = new GoogleGenAI({ apiKey });
 
     const tripTypeString = params.returnDate 
-      ? `Viagem de IDA E VOLTA. Data de Volta: ${params.returnDate}` 
-      : 'Viagem APENAS DE IDA';
+      ? `IDA E VOLTA (Volta: ${params.returnDate})` 
+      : 'APENAS IDA';
 
+    // Construção de um prompt mais diretivo para garantir o uso da ferramenta
     const prompt = `
-      ATUE COMO: O melhor agente de viagens de luxo do mundo (Zupelli Turismo).
-      MISSÃO: Realizar uma varredura minuciosa na web para encontrar as passagens aéreas MAIS BARATAS e com MELHOR CUSTO-BENEFÍCIO.
+      ATUE COMO: O sistema de inteligência artificial de viagens mais avançado do mundo, o "Zupelli AI".
       
-      DADOS DO CLIENTE:
+      OBJETIVO: Pesquisar e analisar passagens aéreas reais.
+      
+      PARÂMETROS DA BUSCA:
       - Origem: ${params.origin}
       - Destino: ${params.destination}
       - Data de Ida: ${params.date}
-      - ${tripTypeString}
+      - Tipo: ${tripTypeString}
 
-      INSTRUÇÕES ESTRITAS:
-      1. Use a ferramenta Google Search para buscar preços REAIS em múltiplos sites (Skyscanner, Google Flights, Kayak, Decolar).
-      2. Compare exaustivamente as opções.
-      3. Se encontrar voos muito baratos, verifique se há escalas longas e avise.
+      INSTRUÇÕES PARA O MODELO (IMPORTANTE):
+      1. USE A FERRAMENTA DE BUSCA (Google Search) para encontrar preços atuais. Pesquise por termos como "passagem aérea ${params.origin} para ${params.destination} ${params.date}".
+      2. Se não encontrar o preço exato para o dia específico nos resultados da busca, use preços de datas próximas como referência e deixe claro que é uma estimativa.
+      3. Seja transparente: Se os resultados da busca não mostrarem preços, diga que está monitorando as tarifas e sugira os melhores sites (Google Flights, Skyscanner) para consulta direta.
+      4. NÃO invente valores aleatórios. Use os dados retornados pela ferramenta de busca (Grounding).
       
-      FORMATO DA RESPOSTA (Markdown):
-      # ✈️ Análise de Voos Exclusiva
+      FORMATO DE RESPOSTA (Markdown Elegante):
       
-      **Resumo Executivo:** [Uma frase de impacto sobre a melhor oportunidade]
+      # ✈️ Relatório de Voo: ${params.origin} ➔ ${params.destination}
       
-      ## 🏆 Melhor Escolha (Custo-Benefício)
-      * **Preço:** R$ [Valor]
-      * **Cia Aérea:** [Nome]
-      * **Horários:** [Ida] | [Volta se houver]
-      * **Detalhe:** [Por que essa é a melhor opção?]
-
-      ## 💰 Opção Mais Econômica (Menor Preço Absoluto)
-      * **Preço:** R$ [Valor]
-      * **Detalhes:** [Cia, escalas, tempo total]
-
-      ## 💎 Opção Mais Confortável (Direto/Executiva)
-      * [Detalhes se disponível]
+      **Status da Busca:** [Encontrado / Estimado]
+      
+      ## 🏅 Destaque da IA (Melhor Custo-Benefício)
+      > [Destaque a melhor opção encontrada ou recomendada com base na busca]
+      
+      ## 📊 Análise de Tarifas
+      * **Opção Econômica:** R$ [Valor] (Cia: [Nome]) - *[Obs: escalas/bagagem]*
+      * **Opção Rápida:** R$ [Valor] (Cia: [Nome]) - *[Obs: tempo total]*
+      
+      ## 💡 Insights Zupelli
+      * [Dica sobre o destino ou época do ano]
+      * [Alerta sobre antecedência de compra]
 
       ---
-      *Dica Zupelli:* [Uma dica valiosa sobre o destino ou a data]
+      *Nota: Os valores são baseados nos resultados de busca disponíveis publicamente e podem variar.*
     `;
 
     const response = await ai.models.generateContent({
@@ -61,18 +63,17 @@ export const searchFlights = async (params: SearchParams): Promise<FlightRespons
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: "Você é um assistente de viagens sofisticado, preciso e obcecado por encontrar o menor preço para o cliente. Responda em Português do Brasil com elegância.",
-        temperature: 0.2, 
+        systemInstruction: "Você é um assistente de viagens de luxo, polido, direto e extremamente útil. Responda sempre em Português do Brasil com formatação Markdown impecável.",
+        temperature: 0.2, // Temperatura baixa para respostas mais factuais
       },
     });
 
-    const text = response.text || "Não foi possível encontrar resultados específicos no momento. Tente refinar as datas.";
+    const text = response.text || "Desculpe, não consegui recuperar os dados dos voos neste momento. Por favor, tente novamente em alguns instantes.";
     
-    // Extract grounding chunks
+    // Extração segura das fontes (Grounding)
     const candidates = response.candidates;
     const groundingChunks = candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     
-    // Filter and map to our GroundingSource type
     const sources = groundingChunks
       .filter((chunk: any) => chunk.web)
       .map((chunk: any) => ({
@@ -88,11 +89,19 @@ export const searchFlights = async (params: SearchParams): Promise<FlightRespons
     };
 
   } catch (error: any) {
-    console.error("Erro na busca:", error);
-    // Retornar erro amigável se for problema de chave
-    if (error.message.includes("API_KEY")) {
-      throw new Error("Erro de Configuração: Chave de API não encontrada.");
+    console.error("Erro detalhado na busca:", error);
+    
+    // Tratamento de erros específicos para feedback visual
+    let errorMessage = "Ocorreu um erro inesperado ao buscar voos.";
+    
+    if (error.message?.includes("API_KEY")) {
+      errorMessage = "Erro de Configuração: API Key ausente ou inválida. Verifique a Vercel.";
+    } else if (error.status === 429) {
+      errorMessage = "Muitas requisições. Por favor, aguarde um momento.";
+    } else if (error.message?.includes("fetch")) {
+      errorMessage = "Erro de conexão. Verifique sua internet.";
     }
-    throw error;
+
+    throw new Error(errorMessage);
   }
 };
