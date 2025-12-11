@@ -1,16 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 import { FlightResponse, SearchParams } from "../types";
 
-// Declare process to avoid TypeScript errors
-declare var process: any;
+// Declare process to satisfy TypeScript compiler
+declare var process: { env: { API_KEY?: string } };
 
 export const searchFlights = async (params: SearchParams): Promise<FlightResponse> => {
   try {
-    const apiKey = process.env.API_KEY;
+    // Access safely thanks to the polyfill in index.tsx
+    // Trim whitespace to prevent copy-paste errors
+    const apiKey = process.env.API_KEY ? process.env.API_KEY.trim() : "";
     
-    // Validar se a chave existe antes de tentar instanciar o cliente
+    // Critical Check
     if (!apiKey) {
-      throw new Error("A chave da API (API_KEY) não está configurada. Configure as variáveis de ambiente no painel da Vercel.");
+      throw new Error("CONFIG_ERROR: API Key não encontrada.");
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -19,43 +21,38 @@ export const searchFlights = async (params: SearchParams): Promise<FlightRespons
       ? `IDA E VOLTA (Volta: ${params.returnDate})` 
       : 'APENAS IDA';
 
-    // Construção de um prompt mais diretivo para garantir o uso da ferramenta
     const prompt = `
-      ATUE COMO: O sistema de inteligência artificial de viagens mais avançado do mundo, o "Zupelli AI".
+      ATUE COMO: "Zupelli AI", o consultor de viagens definitivo.
+      CONTEXTO: Busca em tempo real de passagens aéreas.
       
-      OBJETIVO: Pesquisar e analisar passagens aéreas reais.
-      
-      PARÂMETROS DA BUSCA:
+      DADOS:
       - Origem: ${params.origin}
       - Destino: ${params.destination}
-      - Data de Ida: ${params.date}
+      - Data: ${params.date}
       - Tipo: ${tripTypeString}
 
-      INSTRUÇÕES PARA O MODELO (IMPORTANTE):
-      1. USE A FERRAMENTA DE BUSCA (Google Search) para encontrar preços atuais. Pesquise por termos como "passagem aérea ${params.origin} para ${params.destination} ${params.date}".
-      2. Se não encontrar o preço exato para o dia específico nos resultados da busca, use preços de datas próximas como referência e deixe claro que é uma estimativa.
-      3. Seja transparente: Se os resultados da busca não mostrarem preços, diga que está monitorando as tarifas e sugira os melhores sites (Google Flights, Skyscanner) para consulta direta.
-      4. NÃO invente valores aleatórios. Use os dados retornados pela ferramenta de busca (Grounding).
+      INSTRUÇÃO DE FERRAMENTA:
+      1. Utilize 'googleSearch' para encontrar voos reais e preços atuais em sites confiáveis (Google Flights, Skyscanner, Kayak).
+      2. Se o preço exato para a data não estiver disponível no snippet, forneça a melhor estimativa baseada em datas próximas e avise o usuário.
       
-      FORMATO DE RESPOSTA (Markdown Elegante):
+      RESPOSTA (Markdown):
+      # ✈️ ${params.origin} ➔ ${params.destination}
       
-      # ✈️ Relatório de Voo: ${params.origin} ➔ ${params.destination}
-      
-      **Status da Busca:** [Encontrado / Estimado]
-      
-      ## 🏅 Destaque da IA (Melhor Custo-Benefício)
-      > [Destaque a melhor opção encontrada ou recomendada com base na busca]
-      
-      ## 📊 Análise de Tarifas
-      * **Opção Econômica:** R$ [Valor] (Cia: [Nome]) - *[Obs: escalas/bagagem]*
-      * **Opção Rápida:** R$ [Valor] (Cia: [Nome]) - *[Obs: tempo total]*
-      
-      ## 💡 Insights Zupelli
-      * [Dica sobre o destino ou época do ano]
-      * [Alerta sobre antecedência de compra]
+      **Resumo:** [Breve frase de impacto sobre a disponibilidade/preço]
+
+      ## 💎 A Escolha Zupelli (Melhor Custo-Benefício)
+      * **Cia Aérea:** [Nome]
+      * **Valor Estimado:** R$ [Preço]
+      * **Por que escolhemos:** [Motivo: preço, horário ou conforto]
+
+      ## 📉 Opção Mais Barata
+      * **Valor:** R$ [Preço] - [Detalhes da Cia/Escalas]
+
+      ## 🚀 Opção Mais Rápida/Confortável
+      * **Valor:** R$ [Preço] - [Detalhes]
 
       ---
-      *Nota: Os valores são baseados nos resultados de busca disponíveis publicamente e podem variar.*
+      *Dica Pro:* [Uma dica valiosa sobre o destino ou aeroporto]
     `;
 
     const response = await ai.models.generateContent({
@@ -63,14 +60,14 @@ export const searchFlights = async (params: SearchParams): Promise<FlightRespons
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        systemInstruction: "Você é um assistente de viagens de luxo, polido, direto e extremamente útil. Responda sempre em Português do Brasil com formatação Markdown impecável.",
-        temperature: 0.2, // Temperatura baixa para respostas mais factuais
+        systemInstruction: "Você é um assistente de viagens sofisticado. Use formatação Markdown limpa e elegante. Preços em Reais (BRL).",
+        temperature: 0.2, 
       },
     });
 
-    const text = response.text || "Desculpe, não consegui recuperar os dados dos voos neste momento. Por favor, tente novamente em alguns instantes.";
+    const text = response.text || "O sistema de busca retornou vazio. Por favor, tente novamente em alguns instantes.";
     
-    // Extração segura das fontes (Grounding)
+    // Extract grounding chunks securely
     const candidates = response.candidates;
     const groundingChunks = candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     
@@ -89,16 +86,18 @@ export const searchFlights = async (params: SearchParams): Promise<FlightRespons
     };
 
   } catch (error: any) {
-    console.error("Erro detalhado na busca:", error);
+    console.error("Zupelli AI Error:", error);
     
-    // Tratamento de erros específicos para feedback visual
-    let errorMessage = "Ocorreu um erro inesperado ao buscar voos.";
+    let errorMessage = "Ocorreu uma falha na comunicação com a IA.";
     
-    if (error.message?.includes("API_KEY")) {
-      errorMessage = "Erro de Configuração: API Key ausente ou inválida. Verifique a Vercel.";
+    // User-friendly error mapping
+    if (error.message.includes("CONFIG_ERROR") || error.message.includes("API Key")) {
+      errorMessage = "Chave de API não configurada. Verifique as variáveis de ambiente na Vercel (API_KEY).";
+    } else if (error.status === 403) {
+      errorMessage = "Acesso negado. Verifique se a API Key é válida e tem permissões.";
     } else if (error.status === 429) {
-      errorMessage = "Muitas requisições. Por favor, aguarde um momento.";
-    } else if (error.message?.includes("fetch")) {
+      errorMessage = "Alto tráfego detectado. Aguarde alguns segundos e tente novamente.";
+    } else if (error.message.includes("fetch") || error.message.includes("network")) {
       errorMessage = "Erro de conexão. Verifique sua internet.";
     }
 
